@@ -1,25 +1,124 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: 'Reproducible Research: Peer Assessment 1'
+output: html_document
+keep_md: true
 ---
 
 
 ## Loading and preprocessing the data
 
-
+```{r}
+activity<-read.csv("activity.csv")
+activity$date<-as.Date(activity$date,format="%Y-%m-%d")
+```
 
 ## What is mean total number of steps taken per day?
 
+##### 1.Loading libraries.
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+##### 2.Calculation of the total number of steps taken per day.
+```{r}
+total_steps_perday<-activity%>%group_by(date)%>%
+        summarize(total_steps = sum(steps, na.rm = TRUE))
+```
+
+##### 3.Making a histogram of the total number of steps taken each day.
+```{r,message=FALSE, warning=FALSE}
+ggplot(total_steps_perday, aes(x =total_steps )) +                          
+        geom_histogram() +
+        labs( x = "Steps", y="Frequency")+
+        ggtitle("Total number of steps taken per day")
+```
+
+##### 4.Finding mean and median of steps taken per day.
+```{r}
+mean(total_steps_perday$total_steps, na.rm = TRUE)
+median(total_steps_perday$total_steps, na.rm = TRUE)
+```
 
 
 ## What is the average daily activity pattern?
 
+##### 1.Calculate average steps grouped by the interval.
+```{r}
+avg_steps_5min<-activity%>%group_by(interval)%>%
+        summarize(avg_steps = mean(steps, na.rm = TRUE))
+```
 
+##### 2.Making a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
+```{r}
+ggplot(avg_steps_5min, aes(x=interval, y=avg_steps)) +
+        geom_line(size = I(1.2)) + 
+        xlab("5-minute interval")+
+        ggtitle("Average number of steps taken")
+```
+
+##### 3.Finding which 5-minute interval contains the maximum number of steps.
+```{r}
+pos_max <- which.max(avg_steps_5min$avg_steps)
+avg_steps_5min[pos_max,1]
+```
 
 ## Imputing missing values
 
+##### 1.The total number of missing values in the dataset
+```{r}
+sum(is.na(activity$steps))
+```
+
+##### 2.Filling in all of the missing values with the mean for that 5-minute interval and creating a new dataset with no missing values.
+```{r}
+activity1 <- activity %>%
+        left_join(activity%>%
+                          group_by(interval) %>%
+                          summarise(mean_steps = mean(steps, na.rm = TRUE)), 
+                  by = c("interval"))%>%
+        mutate(steps = ifelse(is.na(steps), mean_steps, steps))%>%
+        select(-mean_steps)
+```
+
+##### 3.A histogram of the total number of steps taken each day.
+```{r, message=FALSE, warning=FALSE}
+total_steps_perday1<-activity1%>%group_by(date)%>%
+        summarize(total_steps = sum(steps, na.rm = TRUE))
+
+ggplot(total_steps_perday1, aes(x =total_steps )) +                          
+        geom_histogram() +
+        labs( x = "Steps", y="Frequency")+
+        ggtitle("Total number of steps taken per day")
+```
+
+##### 4.Calculating mean and median of steps taken per day.
+```{r}
+mean(total_steps_perday1$total_steps, na.rm = TRUE)
+median(total_steps_perday1$total_steps, na.rm = TRUE)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+##### 1.Creating a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+```{r,message=FALSE, warning=FALSE}
+Sys.setlocale(category = "LC_ALL", locale = "english")
+activity$weekday<-weekdays(activity$date)
+activity$weekday[activity$weekday%in%c("Saturday", "Sunday")]<-"weekend"
+activity$weekday[activity$weekday!="weekend"]<-"weekday"
+activity$weekday<-factor(activity$weekday)
+```
+
+##### 2.Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+```{r}
+avg_steps_week<-activity%>%group_by(interval, weekday)%>%
+        summarize(avg_steps = mean(steps, na.rm = TRUE))
+
+
+ggplot(avg_steps_week, aes(interval, avg_steps, colour = factor(weekday))) + 
+        geom_line(size = I(1), show.legend = FALSE)+
+        facet_grid(rows = vars(weekday))+
+        ylab("Number of steps")
+```
+
